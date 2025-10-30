@@ -25,6 +25,9 @@ runs:
       with:
         node-version: "22"
 
+    - name: Install autocorrect
+      run: npm install autocorrect-node
+
     - name: Run autocorrect
       run: npx autocorrect --fix
       shell: bash
@@ -36,8 +39,7 @@ runs:
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
         git add .
-        git reset package.json
-        git reset .github
+        git reset package.json package-lock.json package-lock.yaml yarn.lock .github
 
         if git diff --staged --quiet; then
           echo "No changes to commit"
@@ -60,12 +62,12 @@ runs:
         API_URL="https://winston.emtech.cc/api/check"
         mkdir -p logs
 
-        echo "🔍 Searching markdown files..."
+        echo "🔍 Searching ${{ inputs.exts }} files..."
         IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
-        mapfile -t FILES < <(find . -type f \( $(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//') \))
+        mapfile -t FILES < <(find . -type f \( $(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}") -false \))
 
         if [ ${#FILES[@]} -eq 0 ]; then
-          echo "⚠️ No markdown files found"
+          echo "⚠️ No ${{ inputs.exts }} files found"
           exit 0
         fi
 
