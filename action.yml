@@ -10,103 +10,98 @@ inputs:
     description: "File extensions to check (comma separated)"
     default: "md"
     required: false
+  github_token:
+    description: "GitHub Token for pushing commits"
+    required: false
 
-jobs:
-  autocorrect:
-    name: 🗿 盤古之白檢查
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
 
-      - name: Run autocorrect
-        run: npx autocorrect --fix
-        continue-on-error: true
+    - name: Run autocorrect
+      run: npx autocorrect --fix
+      shell: bash
+      continue-on-error: true
 
-      - name: Add changes except package.json
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          git add .
-          git reset package.json
-          git reset .github
-      - name: Commit
-        run: |
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
+    - name: Commit autocorrected files
+      shell: bash
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "actions@github.com"
+        git add .
+        git reset package.json
+        git reset .github
+
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
           git commit -m "style: 你們為甚麼就不能加個空白呢？"
           git push
+        fi
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+
+    - name: Install jq & parallel
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y jq parallel
+      shell: bash
+
+    - name: Check files with Winston API
+      run: |
+        set -e
+        API_URL="https://winston.emtech.cc/api/check"
+        mkdir -p logs
+
+        echo "🔍 Searching markdown files..."
+        IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
+        mapfile -t FILES < <(find . -type f \( $(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//') \))
+
+        if [ ${#FILES[@]} -eq 0 ]; then
+          echo "⚠️ No markdown files found"
+          exit 0
+        fi
+
+        echo "🚀 Running checks in parallel for ${#FILES[@]} files..."
+
+        check_file() {
+          local file="$1"
+          local text
+          text=$(jq -Rs . < "$file")
+          local response
+          response=$(curl -s -X POST "$API_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\": $text}")
+
+          if echo "$response" | jq -e '.mistakes | length > 0' >/dev/null; then
+            echo "❌ [$file]"
+            echo "$response" | jq -r '.mistakes[] |
+              if .type == "spelling_correction" or .type == "case" then
+                "「\(.wrong)」應寫成「\(.correct | join("、"))」"
+              elif .type == "term_ambiguity_check" then
+                "你確定你想說的是「\(.wrong)」而不是「\(.correct | join("、"))」嗎？"
+              elif .type == "political_terminology" then
+                "「\(.wrong)」是含有政治色彩的中國用語，請考慮改用「\(.correct | join("、"))」"
+              elif .type == "regional_difference" then
+                "「\(.wrong)」（✗）\n「\(.correct | join("、"))」（✓）"
+              else
+                "⚠️ 其他類型：\(.type) - \(.wrong) → \(.correct | join("、"))"
+              end'
+            echo
+          else
+            echo "✅ [$file] OK"
           fi
-        env:
-          GITHUB_TOKEN: ${{ inputs.github_token }}
-  winston:
-    name: 📝 Markdown 中國用語／錯字檢查
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+        }
 
-      - name: Install jq & parallel
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y jq parallel
-
-      - name: Check files with Winston API
-        run: |
-          set -e
-          API_URL="https://winston.emtech.cc/api/check"
-          mkdir -p logs
-
-          echo "🔍 Searching markdown files..."
-          IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
-          mapfile -t FILES < <(find . -type f \( $(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//') \))
-
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "⚠️ No markdown files found"
-            exit 0
-          fi
-
-          echo "🚀 Running checks in parallel for ${#FILES[@]} files..."
-
-          check_file() {
-            local file="$1"
-            local text
-            text=$(jq -Rs . < "$file")
-            local response
-            response=$(curl -s -X POST "$API_URL" \
-              -H "Content-Type: application/json" \
-              -d "{\"text\": $text}")
-
-            if echo "$response" | jq -e '.mistakes | length > 0' >/dev/null; then
-              echo "❌ [$file]"
-              echo "$response" | jq -r '.mistakes[] |
-                if .type == "spelling_correction" or .type == "case" then
-                  "「\(.wrong)」應寫成「\(.correct | join("、"))」"
-                elif .type == "term_ambiguity_check" then
-                  "你確定你想說的是「\(.wrong)」而不是「\(.correct | join("、"))」嗎？"
-                elif .type == "political_terminology" then
-                  "「\(.wrong)」是含有政治色彩的中國用語，請考慮改用「\(.correct | join("、"))」"
-                elif .type == "regional_difference" then
-                  "「\(.wrong)」（✗）\n「\(.correct | join("、"))」（✓）"
-                else
-                  "⚠️ 其他類型：\(.type) - \(.wrong) → \(.correct | join("、"))"
-                end'
-              echo
-            else
-              echo "✅ [$file] OK"
-            fi
-          }
-
-          export -f check_file
-          export API_URL
-
-          parallel -j 10 check_file ::: "${FILES[@]}"
-
-          echo "🏁 All checks finished (warnings do NOT block merge)."
+        export -f check_file
+        export API_URL
+        parallel -j 10 check_file ::: "${FILES[@]}"
+        echo "🏁 All checks finished (warnings do NOT block merge)."
+      shell: bash
