@@ -62,10 +62,10 @@ runs:
         set -e
         API_URL="https://winston.emtech.cc/api/check"
         mkdir -p logs
-
         echo "🔍 Searching ${{ inputs.exts }} files..."
         IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
-        mapfile -t FILES < <(find . -type f \( $(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}") -false \))
+        FIND_PATTERN=$(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//')
+        mapfile -t FILES < <(find . -type f \( $FIND_PATTERN \) 2>/dev/null)
 
         if [ ${#FILES[@]} -eq 0 ]; then
           echo "⚠️ No ${{ inputs.exts }} files found"
