@@ -5,8 +5,9 @@ branding:
   color: gray-dark
   icon: file-text
 inputs:
-  file:
-    description: "Files to check."
+  exts:
+    description: "File extensions to check (comma separated)"
+    default: "md"
     required: false
 on:
   push:
@@ -48,7 +49,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   winston:
-    name: 📝 Winston Bot 中國用語／錯字檢查
+    name: 📝 Markdown 中國用語／錯字檢查
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -66,10 +67,11 @@ jobs:
           mkdir -p logs
 
           echo "🔍 Searching markdown files..."
-          mapfile -t FILES < <(find post -type f -name "*.md")
+          IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
+          mapfile -t FILES < <(find . -type f \( $(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//') \))
 
           if [ ${#FILES[@]} -eq 0 ]; then
-            echo "⚠️ No markdown files found under post/"
+            echo "⚠️ No markdown files found"
             exit 0
           fi
 
