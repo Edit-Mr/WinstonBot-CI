@@ -64,47 +64,47 @@ runs:
       working-directory: ${{ github.workspace }}
       run: |
         set -e
-         API_URL="https://winston.emtech.cc/api/check"
-         mkdir -p logs
-         echo "🔍 Searching ${{ inputs.exts }} files..."
-         IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
-         EXT_REGEX=$(IFS='|'; echo "${EXT_ARR[*]}")
-         mapfile -t FILES < <(find . -type f -regex ".*\.\(${EXT_REGEX}\)$" 2>/dev/null)
-         echo "Found ${#FILES[@]} files"
-         if [ ${#FILES[@]} -eq 0 ]; then
-           echo "⚠️ No ${{ inputs.exts }} files found"
-           exit 0
-         fi
+          API_URL="https://winston.emtech.cc/api/check"
+          mkdir -p logs
+          echo "🔍 Searching ${{ inputs.exts }} files..."
+          IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
+          EXT_REGEX=$(IFS='|'; echo "${EXT_ARR[*]}")
+          mapfile -t FILES < <(find . -type f -regex ".*\.\(${EXT_REGEX}\)$" 2>/dev/null)
+          echo "Found ${#FILES[@]} files"
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "⚠️ No ${{ inputs.exts }} files found"
+            exit 0
+          fi
 
-         echo "🚀 Running checks in parallel for ${#FILES[@]} files..."
-         check_file() {
-           local file="$1"
-           local text
-           text=$(jq -Rs . < "$file")
-           local response
-           response=$(curl -s -X POST "$API_URL" \
-             -H "Content-Type: application/json" \
-             -d "{\"text\": $text}")
-           if echo "$response" | jq -e '.mistakes | length > 0' >/dev/null; then
-             echo "❌ [$file]"
-             echo "$response" | jq -r '.mistakes[] |
-               if .type == "spelling_correction" or .type == "case" then
-                 "「\(.wrong)」應寫成「\(.correct | join("、"))」"
-               elif .type == "term_ambiguity_check" then
-                 "你確定你想說的是「\(.wrong)」而不是「\(.correct | join("、"))」嗎？"
-               elif .type == "political_terminology" then
-                 "「\(.wrong)」是含有政治色彩的中國用語，請考慮改用「\(.correct | join("、"))」"
-               elif .type == "regional_difference" then
-                 "「\(.wrong)」（✗）\n「\(.correct | join("、"))」（✓）"
-               else
-                 "⚠️ 其他類型：\(.type) - \(.wrong) → \(.correct | join("、"))"
-               end'
-             echo
-           else
-             echo "✅ [$file] OK"
-           fi
-         }
-         export -f check_file
-         export API_URL
-         parallel -j 10 check_file ::: "${FILES[@]}"
-         echo "🏁 All checks finished (warnings do NOT block merge)."
+          echo "🚀 Running checks in parallel for ${#FILES[@]} files..."
+          check_file() {
+            local file="$1"
+            local text
+            text=$(jq -Rs . < "$file")
+            local response
+            response=$(curl -s -X POST "$API_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\": $text}")
+            if echo "$response" | jq -e '.mistakes | length > 0' >/dev/null; then
+              echo "❌ [$file]"
+              echo "$response" | jq -r '.mistakes[] |
+                if .type == "spelling_correction" or .type == "case" then
+                  "「\(.wrong)」應寫成「\(.correct | join("、"))」"
+                elif .type == "term_ambiguity_check" then
+                  "你確定你想說的是「\(.wrong)」而不是「\(.correct | join("、"))」嗎？"
+                elif .type == "political_terminology" then
+                  "「\(.wrong)」是含有政治色彩的中國用語，請考慮改用「\(.correct | join("、"))」"
+                elif .type == "regional_difference" then
+                  "「\(.wrong)」（✗）\n「\(.correct | join("、"))」（✓）"
+                else
+                  "⚠️ 其他類型：\(.type) - \(.wrong) → \(.correct | join("、"))"
+                end'
+              echo
+            else
+              echo "✅ [$file] OK"
+            fi
+          }
+          export -f check_file
+          export API_URL
+          parallel -j 10 check_file ::: "${FILES[@]}"
+          echo "🏁 All checks finished (warnings do NOT block merge)."
