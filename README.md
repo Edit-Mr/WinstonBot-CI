@@ -12,6 +12,16 @@ with:
   exts: markdown,md,txt
 ```
 
+如果想要自動將 AutoCorrect 的建議套用到檔案中，請設定 `GITHUB_TOKEN`。
+
+```yaml
+- name: Run Winston bot
+        uses: Edit-Mr/WinstonBot-CI@main
+        with:
+          exts: md
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## 使用方式
 
 建立一個 GitHub Actions workflow（`.github/workflows/ci.yml`），內容範例如下：
@@ -30,4 +40,7 @@ jobs:
     steps:
       - name: Winston Bot 中文檢查
         uses: Edit-Mr/WinstonBot-CI@main
+        with:
+          exts: md
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
