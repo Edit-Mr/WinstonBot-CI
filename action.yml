@@ -26,6 +26,7 @@ runs:
         node-version: "22"
 
     - name: Install autocorrect
+      shell: bash
       run: npm install autocorrect-node
 
     - name: Run autocorrect
