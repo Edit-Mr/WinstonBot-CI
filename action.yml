@@ -1,5 +1,13 @@
 name: Winston Bot 中文檢查
-
+author: Elvis Mao
+description: 拼寫錯誤、專有名詞大小寫、中國政治色彩用語檢查工具
+branding:
+  color: gray-dark
+  icon: file-text
+inputs:
+  file:
+    description: "Files to check."
+    required: false
 on:
   push:
   pull_request:
@@ -18,19 +26,8 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install dependencies
-        run: |
-          git config pull.rebase true
-          git pull
-          corepack enable
-          pnpm i -D
-
       - name: Run autocorrect
-        run: pnpm autocorrect --fix
-        continue-on-error: true
-
-      - name: Run prettier
-        run: pnpm prettier --write .
+        run: npx autocorrect --fix
         continue-on-error: true
 
       - name: Add changes except package.json
