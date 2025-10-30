@@ -69,7 +69,9 @@ runs:
         echo "🔍 Searching ${{ inputs.exts }} files..."
         IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
         EXT_REGEX=$(IFS='|'; echo "${EXT_ARR[*]}")
-        mapfile -t FILES < <(find . -type f -regex ".*\.\(${EXT_REGEX}\)$" 2>/dev/null)
+        mapfile -t FILES < <(
+          git ls-files | grep -E "\.(${EXT_REGEX})$"
+        )
         echo "Found ${#FILES[@]} files"
         if [ ${#FILES[@]} -eq 0 ]; then
           echo "⚠️ No ${{ inputs.exts }} files found"
