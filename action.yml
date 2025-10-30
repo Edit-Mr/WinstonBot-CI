@@ -71,6 +71,9 @@ runs:
 
         if [ ${#FILES[@]} -eq 0 ]; then
           echo "⚠️ No ${{ inputs.exts }} files found"
+          echo "Current directory: $(pwd)"
+          echo "Listing files:"
+          ls -R | head -n 50
           exit 0
         fi
 
