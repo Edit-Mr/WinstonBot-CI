@@ -60,25 +60,24 @@ runs:
       shell: bash
 
     - name: Check files with Winston API
+      shell: bash
+      working-directory: ${{ github.workspace }}
       run: |
         set -e
         API_URL="https://winston.emtech.cc/api/check"
         mkdir -p logs
         echo "🔍 Searching ${{ inputs.exts }} files..."
         IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
-        FIND_PATTERN=$(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//')
-        mapfile -t FILES < <(find "$GITHUB_WORKSPACE" -type f \( $FIND_PATTERN \) 2>/dev/null)
-
+        FIND_PATTERN=$(printf -- '-name "%s" -o ' "${EXT_ARR[@]/#/*.}")
+        FIND_PATTERN="${FIND_PATTERN::-4}" # 去掉最後的 -o
+        echo "Find pattern: $FIND_PATTERN"
+        mapfile -t FILES < <(find . -type f \( $FIND_PATTERN \) 2>/dev/null)
+        echo "Found ${#FILES[@]} files"
         if [ ${#FILES[@]} -eq 0 ]; then
           echo "⚠️ No ${{ inputs.exts }} files found"
-          echo "Current directory: $(pwd)"
-          echo "Listing files:"
-          ls -R | head -n 50
           exit 0
         fi
-
         echo "🚀 Running checks in parallel for ${#FILES[@]} files..."
-
         check_file() {
           local file="$1"
           local text
@@ -87,7 +86,6 @@ runs:
           response=$(curl -s -X POST "$API_URL" \
             -H "Content-Type: application/json" \
             -d "{\"text\": $text}")
-
           if echo "$response" | jq -e '.mistakes | length > 0' >/dev/null; then
             echo "❌ [$file]"
             echo "$response" | jq -r '.mistakes[] |
@@ -107,9 +105,7 @@ runs:
             echo "✅ [$file] OK"
           fi
         }
-
         export -f check_file
         export API_URL
         parallel -j 10 check_file ::: "${FILES[@]}"
         echo "🏁 All checks finished (warnings do NOT block merge)."
-      shell: bash
