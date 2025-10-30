@@ -60,7 +60,6 @@ runs:
       shell: bash
 
     - name: Check files with Winston API
-      working-directory: ${{ github.workspace }}
       run: |
         set -e
         API_URL="https://winston.emtech.cc/api/check"
@@ -68,7 +67,7 @@ runs:
         echo "🔍 Searching ${{ inputs.exts }} files..."
         IFS=',' read -r -a EXT_ARR <<< "${{ inputs.exts }}"
         FIND_PATTERN=$(printf -- '-name "*.%s" -o ' "${EXT_ARR[@]}" | sed 's/ -o $//')
-        mapfile -t FILES < <(find . -type f \( $FIND_PATTERN \) 2>/dev/null)
+        mapfile -t FILES < <(find "$GITHUB_WORKSPACE" -type f \( $FIND_PATTERN \) 2>/dev/null)
 
         if [ ${#FILES[@]} -eq 0 ]; then
           echo "⚠️ No ${{ inputs.exts }} files found"
