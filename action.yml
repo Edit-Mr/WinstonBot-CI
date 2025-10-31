@@ -40,13 +40,12 @@ runs:
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
         git add .
-        git reset package.json package-lock.json package-lock.yaml yarn.lock .github
-
+        git restore --staged package.json .github
+        git restore package.json .github
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
           git commit -m "style: 你們為甚麼就不能加個空白呢？"
-          git pull --rebase
           git push
         fi
       env:
