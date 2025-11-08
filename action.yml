@@ -34,6 +34,11 @@ runs:
       shell: bash
       continue-on-error: true
 
+    - name: No space for 毛哥EM
+      run: find . -type f -exec sed -i 's/毛哥 EM/毛哥EM/g' {} +
+      shell: bash
+      continue-on-error: true
+
     - name: Commit autocorrected files
       shell: bash
       run: |
